@@ -19,6 +19,7 @@ build: [
 ]
 install: ["ocamlfind" "install" "FFmpeg3"
           "META"
+          "_build/src/FFmpeg3.mli"
           "_build/src/FFmpeg3.cmi"
           "_build/src/libFFmpeg.cma"
           "_build/src/libFFmpeg.cmxa"
