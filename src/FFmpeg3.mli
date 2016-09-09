@@ -1,107 +1,131 @@
+(* FFmpeg3 bindings for OCaml *)
+
+(*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016 Erkki Seppälä
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *)
+
 type 'rw context = 'rw FFmpegTypes.context
 
-type pts = float
+type pts = float                (** Presentation time *)
 
-type width = int
+type width = int                (** Width of a bitmap in pixels *)
 
-type height = int
+type height = int               (** Height of a bitmap in pixels *)
 
 type 'media_info frame = 'media_info FFmpegTypes.frame
 
-type video = FFmpegTypes.video = { v_width : int; v_height : int; }
-
-type audio =
-  FFmpegTypes.audio = {
-  a_samplerate : int;
-  a_channels : int;
-  a_layout : int option;
+type video = FFmpegTypes.video = {
+  v_width : width;              (** Video width *)
+  v_height : height;            (** Video height *)
 }
 
-type data = FFmpegTypes.data
+type audio = FFmpegTypes.audio = {
+  a_samplerate : int;           (** Sample rate of the audio *)
+  a_channels : int;             (** Number of channels in the audio *)
+  a_layout : int option;        (** Channel layout *)
+}
 
-type 'a media_new_info =
-  'a FFmpegTypes.media_new_info =
-    CreateVideo : video -> [ `Video ] media_new_info
+type data = FFmpegTypes.data    (** Raw data *)
+
+type 'a media_new_info = 'a FFmpegTypes.media_new_info =
+  | CreateVideo : video -> [ `Video ] media_new_info
   | CreateAudio : audio -> [ `Audio ] media_new_info
-  | CreateData : data -> [ `Data ] media_new_info
+  | CreateData  : data -> [ `Data ] media_new_info
 
-type 'a media_type =
-  'a FFmpegTypes.media_type =
-    Video : [ `Video ] media_type
+type 'a media_type = 'a FFmpegTypes.media_type =
+  | Video : [ `Video ] media_type
   | Audio : [ `Audio ] media_type
-  | Data : [ `Data ] media_type
+  | Data  : [ `Data ] media_type
 
 type 'rw rw = 'rw constraint 'rw = [< `Read | `Write ]
 
+(** A media stream (typically a track) *)
 type ('media_info, 'a) stream = ('media_info, 'a) FFmpegTypes.stream
   constraint 'a = [< `Read | `Write ]
 
-type 'format bitmap =
-    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
+(** Raw bitmap *)
+type 'format bitmap = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-type avmedia_type =
-  FFmpegTypes.avmedia_type =
-    AVMEDIA_TYPE_UNKNOWN
-  | AVMEDIA_TYPE_VIDEO
-  | AVMEDIA_TYPE_AUDIO
-  | AVMEDIA_TYPE_DATA
-  | AVMEDIA_TYPE_SUBTITLE
-  | AVMEDIA_TYPE_ATTACHMENT
+type avmedia_type = FFmpegTypes.avmedia_type =
+  | AVMEDIA_TYPE_UNKNOWN        (** Unkown media type; typically error  *)
+  | AVMEDIA_TYPE_VIDEO          (** Video media *)
+  | AVMEDIA_TYPE_AUDIO          (** Audio media *)
+  | AVMEDIA_TYPE_DATA           (** Timed data *)
+  | AVMEDIA_TYPE_SUBTITLE       (** Subtitle *)
+  | AVMEDIA_TYPE_ATTACHMENT     (** Attachment *)
 
 val read : [> `Read ]
 
-type index = int
+type ffmpeg_exception = FFmpegTypes.ffmpeg_exception =
+  | ContextAlloc                (** Error allocating a context *)
+  | Open                        (** Error while opening a file *)
+  | FileIO                      (** File IO error *)
+  | StreamInfo                  (** Error while retrieving stream info *)
+  | WriteHeader                 (** Error while writing header *)
+  | Memory                      (** Memory allocatino error *)
+  | Logic                       (** Logic error (bug) *)
+  | Encode                      (** Error while encoding *)
+  | Closed                      (** The object was closed before current access *)
 
-type ffmpeg_exception =
-  FFmpegTypes.ffmpeg_exception =
-    ContextAlloc
-  | Open
-  | FileIO
-  | StreamInfo
-  | WriteHeader
-  | Memory
-  | Logic
-  | Encode
-  | Closed
 exception Exception of ffmpeg_exception * int
 
-module FFmpegCTypes :
-  sig
-    val avmedia_type_unknown : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_video : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_audio : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_data : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_subtitle : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_attachment : int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_to_c : FFmpegTypes.avmedia_type -> int64 FFmpegGeneratedCTypes.const
-    val avmedia_type_of_c : int64 FFmpegGeneratedCTypes.const -> FFmpegTypes.avmedia_type
-  end
-
+(** [create filename] creates a new media file *)
 val create : string -> [ `Write ] context
 
+(** [open_input filename] opens an existing media file *)
 val open_input : string -> [ `Read ] context
 
+(** [new_stream context media_info] creates a new stream for a
+    [create]d media file context *)
 external new_stream :
   [ `Write ] context ->
   'media_info media_new_info -> ('media_info, [< `Write ]) stream
   = "ffmpeg_stream_new"
 
+(** [open_ ctx] finished opening a file for writing *)
 external open_ : 'rw context -> unit = "ffmpeg_open"
 
+(** [close ctx] closes a media file  *)
+external close : 'rw context -> unit = "ffmpeg_close"
+
+(** [new_frame pts] creates a new video frame with given time stamp *)
 external new_frame :
   ('media_info, [ `Write ]) stream -> pts -> 'media_info frame
   = "ffmpeg_frame_new"
 
-external frame_buffer : [> `Video ] frame -> 'format bitmap
-  = "ffmpeg_frame_buffer"
+(** [close_stream stream] closes a stream withni a media file context *)
+external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit
+  = "ffmpeg_stream_close"
 
+(** [free_frame frame] releases a frame *)
 external free_frame : 'media_info frame -> unit = "ffmpeg_frame_free"
 
+(** [write stream frame] writes a frame to a stream *)
 external write :
   ('media_info, [< `Read | `Write ]) stream -> 'media_info frame -> unit
   = "ffmpeg_write"
 
-external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit
-  = "ffmpeg_stream_close"
+(* todo *)
+external frame_buffer : [> `Video ] frame -> 'format bitmap
+  = "ffmpeg_frame_buffer"
 
-external close : 'rw context -> unit = "ffmpeg_close"
