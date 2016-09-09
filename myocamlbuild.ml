@@ -82,7 +82,6 @@ let setup_ffmpeg () =
     ]);
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "native"] (S[
       S (ccoptify @@ Lazy.force ffmpeg_libs);
-      (* S [A "-cclib"; A "-Lffmpeg"; A "-cclib"; A"-lFFmpeg-stubs"] *)
     ]
     );
   flag ["ocamlmklib"] (S[
