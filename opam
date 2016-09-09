@@ -1,0 +1,30 @@
+opam-version: "1.2"
+name: "FFmpeg3"
+version: "1.0"
+maintainer: "Erkki Seppälä <flux@modeemi.fi>"
+author: "Erkki Seppälä <flux@modeemi.fi>"
+homepage: "https://github.com/eras/FFmpeg3"
+bug-reports: "https://github.com/eras/FFmpeg3/issues"
+license: "MIT"
+dev-repo: "https://github.com/eras/FFmpeg3"
+build: [
+  ["ocamlbuild"
+     "src/libFFmpeg.cma"
+     "src/libFFmpeg.cmxa"
+     "src/libFFmpeg-stubs.a"
+     "src/libFFmpeg.a"
+     "src/FFmpeg.cmi"
+     "src/dllFFmpeg-stubs.so"
+  ]
+]
+install: ["ocamlfind" "install" "FFmpeg3"
+          "META"
+          "_build/src/FFmpeg.cmi"
+          "_build/src/libFFmpeg.cma"
+          "_build/src/libFFmpeg.cmxa"
+          "_build/src/libFFmpeg.a"
+          "_build/src/libFFmpeg-stubs.a"
+          "_build/src/dllFFmpeg-stubs.so"
+]
+remove: ["ocamlfind" "remove" "FFmpeg3"]
+depends: ["ocamlfind" "ctypes"]

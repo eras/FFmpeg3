@@ -1,0 +1,23 @@
+<*.top>: use_libFFmpeg, package(batteries), package(ctypes)
+
+true: bin_annot
+
+<src/*>: package(batteries), \
+	package(ctypes), \
+	package(ctypes.stubs), \
+	debug
+<src/libFFmpeg.cm{,x}a>: build_FFmpeg
+"src/FFmpeg-stubs": build_FFmpeg
+<src/ffmpeg-stubs.c>: build_FFmpeg
+<src/FFmpeg.*>: package(ctypes), ctypes
+<src/FFmpegGeneratedCTypes.*>: package(ctypes), package(ctypes.stubs)
+<src/FFmpegGen.*>: package(ctypes), package(ctypes.foreign), package(ctypes.stubs)
+<src/FFmpegGenGen-c.c>: use_ctypes
+
+<test/*>: package(oUnit), \
+	use_libFFmpeg, \
+	package(ctypes), package(ctypes.foreign), package(ctypes.stubs), \
+	package(batteries), \
+	thread
+<test/*>: debug, bin_annot
+<test/*>: warn(-40)
