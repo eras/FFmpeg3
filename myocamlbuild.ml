@@ -68,7 +68,7 @@ let ctypes_rules cbase phase1gen phase2gen ocaml =
        Cmd(S[P ("./" ^ phase2gen); Sh">"; A ocaml]))
 
 let setup_ffmpeg () =
-  ocaml_lib ~extern:true ~dir:"src" "src/libFFmpeg";
+  ocaml_lib ~byte:true ~native:true ~extern:true ~dir:"src" "src/libFFmpeg";
 
   flag ["mktop"; "use_libFFmpeg"] (A"-custom");
   flag ["link"; "byte"; "use_libFFmpeg"] (A"-custom");
@@ -81,7 +81,7 @@ let setup_ffmpeg () =
       (S [A "-ccopt"; A "-Wno-missing-field-initializers"])
     ]);
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "native"] (S[
-      S (ccoptify @@ Lazy.force ffmpeg_libs);
+      S (cclibify @@ Lazy.force ffmpeg_libs);
     ]
     );
   flag ["ocamlmklib"] (S[
@@ -90,8 +90,10 @@ let setup_ffmpeg () =
     );
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "byte"] (S[
       S [A "-dllib"; A"-lFFmpeg-stubs"];
-    ]
-    );
+    ]);
+  flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "native"] (S[
+      S [A "-cclib"; A"-lFFmpeg-stubs"];
+    ]);
   dep ["link"; "build_FFmpeg"] ["src/libFFmpeg-stubs.a"];
 
   flag ["compile"; "use_libFFmpeg"] (S[A"-I"; A"ffmpeg"]);

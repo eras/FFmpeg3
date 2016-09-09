@@ -25,6 +25,7 @@ install: ["ocamlfind" "install" "FFmpeg3"
           "_build/src/libFFmpeg.a"
           "_build/src/libFFmpeg-stubs.a"
           "_build/src/dllFFmpeg-stubs.so"
+          "_build/src/FFmpeg3.cmx"
 ]
 remove: ["ocamlfind" "remove" "FFmpeg3"]
 depends: ["ocamlfind" "ctypes"]
