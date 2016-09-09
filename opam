@@ -17,6 +17,12 @@ build: [
      "src/dllFFmpeg-stubs.so"
   ]
 ]
+build-doc: [
+  ["ocamlbuild"
+     "src/FFmpeg3.docdir/index.html"
+     "src/FFmpeg3.docdir/man"
+  ]
+]
 install: ["ocamlfind" "install" "FFmpeg3"
           "META"
           "_build/src/FFmpeg3.mli"
@@ -29,4 +35,8 @@ install: ["ocamlfind" "install" "FFmpeg3"
           "_build/src/FFmpeg3.cmx"
 ]
 remove: ["ocamlfind" "remove" "FFmpeg3"]
-depends: ["ocamlfind" "ctypes"]
+depends: [
+	"ocamlfind"
+	"ctypes"
+	"ocamldoc" {doc & build}
+]
