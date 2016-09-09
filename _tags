@@ -9,7 +9,7 @@ true: bin_annot
 <src/libFFmpeg.cm{,x}a>: build_FFmpeg
 "src/FFmpeg-stubs": build_FFmpeg
 <src/ffmpeg-stubs.c>: build_FFmpeg
-<src/FFmpeg.*>: package(ctypes), ctypes
+<src/FFmpeg3.*>: package(ctypes), ctypes
 <src/FFmpegGeneratedCTypes.*>: package(ctypes), package(ctypes.stubs)
 <src/FFmpegGen.*>: package(ctypes), package(ctypes.foreign), package(ctypes.stubs)
 <src/FFmpegGenGen-c.c>: use_ctypes

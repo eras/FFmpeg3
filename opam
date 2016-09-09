@@ -13,13 +13,13 @@ build: [
      "src/libFFmpeg.cmxa"
      "src/libFFmpeg-stubs.a"
      "src/libFFmpeg.a"
-     "src/FFmpeg.cmi"
+     "src/FFmpeg3.cmi"
      "src/dllFFmpeg-stubs.so"
   ]
 ]
 install: ["ocamlfind" "install" "FFmpeg3"
           "META"
-          "_build/src/FFmpeg.cmi"
+          "_build/src/FFmpeg3.cmi"
           "_build/src/libFFmpeg.cma"
           "_build/src/libFFmpeg.cmxa"
           "_build/src/libFFmpeg.a"

@@ -91,13 +91,12 @@ let setup_ffmpeg () =
     );
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "byte"] (S[
       S [A "-dllib"; A"-lFFmpeg-stubs"];
-      (* S (cclibify @@ Lazy.force ffmpeg_libs); *)
     ]
     );
   dep ["link"; "build_FFmpeg"] ["src/libFFmpeg-stubs.a"];
 
   flag ["compile"; "use_libFFmpeg"] (S[A"-I"; A"ffmpeg"]);
-  dep ["compile"; "use_libFFmpeg"] ["src/FFmpeg.cmi"];
+  dep ["compile"; "use_libFFmpeg"] ["src/FFmpeg3.cmi"];
   dep ["link"; "use_libFFmpeg"] ["src/libFFmpeg-stubs.a"];
 
   ctypes_rules "src/FFmpegGenGen-c" "src/FFmpegGen.byte" "src/FFmpegGenGen" "src/FFmpegGeneratedCTypes.ml";
