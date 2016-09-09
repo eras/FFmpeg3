@@ -61,9 +61,7 @@ module FFmpegCTypes :
     val avmedia_type_of_c :
       int64 FFmpegGeneratedCTypes.const -> FFmpegTypes.avmedia_type
   end
-external create_ : string -> [ `Write ] context = "ffmpeg_create"
 val create : string -> [ `Write ] context
-external open_input_ : string -> [ `Read ] context = "ffmpeg_open_input"
 val open_input : string -> [ `Read ] context
 external new_stream :
   [ `Write ] context ->
