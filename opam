@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "FFmpeg3"
-version: "1.0"
+version: "0.1"
 maintainer: "Erkki Seppälä <flux@modeemi.fi>"
 author: "Erkki Seppälä <flux@modeemi.fi>"
 homepage: "https://github.com/eras/FFmpeg3"

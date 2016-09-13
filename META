@@ -1,5 +1,5 @@
 name		= "FFmpeg3"
-version		= "1.0"
+version		= "0.1"
 description	= "FFmpeg 3 bindings"
 requires	= "batteries,ctypes,bigarray"
 archive(byte)	= "libFFmpeg.cma"
