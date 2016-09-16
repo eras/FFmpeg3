@@ -1,3 +1,5 @@
+include FFmpeg3Avcodecs
+
 include FFmpegTypes
 
 let _ = Callback.register_exception "FFmpeg exception" (Exception (ContextAlloc, 0))

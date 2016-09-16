@@ -67,8 +67,47 @@ let ctypes_rules cbase phase1gen phase2gen ocaml =
     (fun _ _ ->
        Cmd(S[P ("./" ^ phase2gen); Sh">"; A ocaml]))
 
+let avcodecs_module = "src/FFmpeg3Avcodecs"
+let avcodecs_module_ml = avcodecs_module ^ ".ml"
+let avcodec_idmapping_h = "src/avcodecidmapping.h"
+
+let cmi x = x ^ ".cmi"
+let cmo x = x ^ ".cmo"
+let cmx x = x ^ ".cmx"
+
+let setup_dumpAvcodecs () =
+  let binary = "src/dumpAvcodecs.byte" in
+
+  rule "dumpAvcodecs tool"
+    ~dep:binary
+    ~prod:avcodecs_module_ml
+    (fun _ _ ->
+       Cmd(S[P binary;
+             A"-ml";
+             A"-out"; A avcodecs_module_ml;
+            ]
+          )
+    );
+
+  rule "dumpAvcodecs id mapping"
+    ~dep:binary
+    ~prod:avcodec_idmapping_h
+    (fun _ _ ->
+       Cmd(S[P binary;
+             A"-c";
+             A"-out"; A avcodec_idmapping_h;
+            ]
+          )
+    )
+
 let setup_ffmpeg () =
   ocaml_lib ~byte:true ~native:true ~extern:true ~dir:"src" "src/libFFmpeg";
+
+  setup_dumpAvcodecs ();
+  dep ["compile"; "build_FFmpeg"; "c"] [avcodec_idmapping_h];
+  dep ["compile"; "build_FFmpeg"; "ocaml"] [avcodecs_module |> cmi];
+  dep ["link"; "build_FFmpeg"; "ocaml"; "byte"] [avcodecs_module |> cmo];
+  dep ["link"; "build_FFmpeg"; "ocaml"; "native"] [avcodecs_module |> cmx];
 
   flag ["mktop"; "use_libFFmpeg"] (A"-custom");
   flag ["link"; "byte"; "use_libFFmpeg"] (A"-custom");

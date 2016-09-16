@@ -24,6 +24,8 @@
  * THE SOFTWARE.
  *)
 
+include module type of FFmpeg3Avcodecs
+
 type 'rw context = 'rw FFmpegTypes.context
 
 type pts = float                (** Presentation time *)
@@ -99,7 +101,7 @@ val open_input : string -> [ `Read ] context
     [create]d media file context *)
 external new_stream :
   [ `Write ] context ->
-  'media_info media_new_info -> ('media_info, [< `Write ]) stream
+  av_codec_id -> 'media_info media_new_info -> ('media_info, [< `Write ]) stream
   = "ffmpeg_stream_new"
 
 (** [open_ ctx] finished opening a file for writing *)
