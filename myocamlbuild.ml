@@ -101,8 +101,6 @@ let setup_dumpAvcodecs () =
     )
 
 let setup_ffmpeg () =
-  ocaml_lib ~byte:true ~native:true ~extern:true ~dir:"src" "src/libFFmpeg";
-
   setup_dumpAvcodecs ();
   dep ["compile"; "build_FFmpeg"; "c"] [avcodec_idmapping_h];
   dep ["compile"; "build_FFmpeg"; "ocaml"] [avcodecs_module |> cmi];
@@ -130,17 +128,25 @@ let setup_ffmpeg () =
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "byte"] (S[
       S [A "-dllib"; A"-lFFmpeg-stubs"];
     ]);
+  flag ["link"; "ocaml"; "use_FFmpeg"; "byte"] (S[
+      S [A "-dllib"; A"-lFFmpeg-stubs"];
+    ]);
   flag ["link"; "library"; "ocaml"; "build_FFmpeg"; "native"] (S[
       S [A "-cclib"; A"-lFFmpeg-stubs"];
     ]);
   dep ["link"; "build_FFmpeg"] ["src/libFFmpeg-stubs.a"];
 
-  flag ["compile"; "use_libFFmpeg"] (S[A"-I"; A"ffmpeg"]);
-  dep ["compile"; "use_libFFmpeg"] ["src/FFmpeg3.cmi"];
-  dep ["link"; "use_libFFmpeg"] ["src/libFFmpeg-stubs.a"];
-
   ctypes_rules "src/FFmpegGenGen-c" "src/FFmpegGen.byte" "src/FFmpegGenGen" "src/FFmpegGeneratedCTypes.ml";
-  dep ["compile"; "ctypes"] ["src/FFmpegGeneratedCTypes.cmi"]
+  dep ["compile"; "ctypes"] ["src/FFmpegGeneratedCTypes.cmi"];
+
+  (* test *)
+  ocaml_lib ~byte:true ~native:true ~extern:false ~dir:"src" "src/libFFmpeg";
+  flag ["use_libFFmpeg"; "ocaml"; "compile"] (S[A"-I"; A"src"]);
+  dep ["compile"; "use_libFFmpeg"] ["src/FFmpeg3.cmi"];
+  flag ["link_FFmpeg"] (S [A "-cclib"; A"src/libFFmpeg-stubs.a"; S (cclibify @@ Lazy.force ffmpeg_libs)])
+  (* flag ["link"; "ocaml"; "use_FFmpeg"; "byte"] (S[ *)
+  (*     S [A "-dllib"; A"-lFFmpeg-stubs"]; *)
+  (*   ]) *)
 
 let _ = dispatch begin function
   | Before_options ->

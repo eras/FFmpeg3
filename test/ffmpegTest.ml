@@ -1,12 +1,9 @@
 open Batteries
-open FFmpeg
-
-let main' () =
-  demo ()
+open FFmpeg3
 
 let main () =
   let ctx = create "foo.mp4" in
-  let stream = new_stream ctx (Video { v_width = 640; v_height = 480 }) in
+  let stream = new_stream ctx AV_CODEC_ID_H264 (CreateVideo { v_width = 640; v_height = 480 }) in
   let (_ : unit) = open_ ctx in
   let _ = List.(0 -- 200) |> Enum.iter (
     fun n ->
