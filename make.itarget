@@ -1,0 +1,6 @@
+src/libFFmpeg.cma
+src/libFFmpeg.cmxa
+src/libFFmpeg-stubs.a
+src/libFFmpeg.a
+src/FFmpeg3.cmi
+src/dllFFmpeg-stubs.so

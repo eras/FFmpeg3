@@ -8,20 +8,10 @@ bug-reports: "https://github.com/eras/FFmpeg3/issues"
 license: "MIT"
 dev-repo: "https://github.com/eras/FFmpeg3"
 build: [
-  ["ocamlbuild"
-     "src/libFFmpeg.cma"
-     "src/libFFmpeg.cmxa"
-     "src/libFFmpeg-stubs.a"
-     "src/libFFmpeg.a"
-     "src/FFmpeg3.cmi"
-     "src/dllFFmpeg-stubs.so"
-  ]
+  ["ocamlbuild" "make.otarget"]
 ]
 build-doc: [
-  ["ocamlbuild"
-     "src/FFmpeg3.docdir/index.html"
-     "src/FFmpeg3.docdir/man"
-  ]
+  ["ocamlbuild" "docs.otarget"]
 ]
 install: ["ocamlfind" "install" "FFmpeg3"
           "META"
