@@ -20,6 +20,12 @@ let version_content () =
         failwith "Unable to determine version" in
   "let version = \"" ^ version ^ "\"\n"
 
+let rpathify option =
+  if String.length option > 2 && String.sub option 0 2 = "-L"; then
+    A("-Wl,-rpath," ^ String.sub option 2 (String.length option - 2))
+  else
+    A option
+
 (* Copied from https://github.com/dbuenzli/tgls/blob/master/myocamlbuild.ml *)
 let pkg_config flags package =
   let has_package =
@@ -29,7 +35,7 @@ let pkg_config flags package =
   let cmd tmp =
     Command.execute ~quiet:true &
       Cmd( S [ A "pkg-config"; A ("--" ^ flags); A package; Sh ">"; A tmp]);
-    List.map (fun arg -> A arg) (string_list_of_file tmp)
+    List.map rpathify (string_list_of_file tmp)
   in
   if has_package then with_temp_file "pkgconfig" "pkg-config" cmd else []
 
