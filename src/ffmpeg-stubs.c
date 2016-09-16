@@ -149,7 +149,7 @@ raise_and_leave_blocking_section_if_not(int condition, enum Exception exn, int e
 static enum AVCodecID
 avcodec_of_ocaml(value avcodec)
 {
-  return avcodecs[Val_int(avcodec)];
+  return avcodecs[Int_val(avcodec)];
 }
 
 value
