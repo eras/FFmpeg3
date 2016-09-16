@@ -17,6 +17,8 @@
 #include <caml/threads.h>
 #include <caml/callback.h>
 
+#include "avcodecidmapping.h"
+
 struct Context {
   AVFormatContext*   fmtCtx;
   char*              filename;
@@ -142,6 +144,12 @@ raise_and_leave_blocking_section_if_not(int condition, enum Exception exn, int e
     caml_leave_blocking_section();
     raise(exn, error);
   }
+}
+
+static int
+avcodec_of_ocaml(value avcodec)
+{
+  return avcodecs[Val_int(avcodec)];
 }
 
 value
@@ -290,13 +298,14 @@ ffmpeg_write(value stream, value rgbaFrame)
 }
 
 value
-ffmpeg_stream_new_video(value ctx, value video_info_)
+ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
 {
-  CAMLparam2(ctx, video_info_);
+  CAMLparam3(ctx, av_codec_id, video_info_);
   CAMLlocal1(stream);
 
   stream = caml_alloc_tuple(StreamSize);
-  AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+  int codec_id = avcodec_of_ocaml(av_codec_id);
+  AVCodec* codec = avcodec_find_encoder(codec_id);
   int ret;
 
   Stream_aux_direct_val(stream) = caml_alloc_custom(&streamaux_ops, sizeof(struct StreamAux), 0, 1);
@@ -304,7 +313,7 @@ ffmpeg_stream_new_video(value ctx, value video_info_)
   Stream_context_direct_val(stream) = ctx;
   Stream_aux_val(stream)->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, codec);
 
-  Stream_aux_val(stream)->avstream->codec->codec_id = AV_CODEC_ID_H264;
+  Stream_aux_val(stream)->avstream->codec->codec_id = codec_id;
   /* Stream_aux_val(stream)->avstream->codec->rc_min_rate = 50000; */
   /* Stream_aux_val(stream)->avstream->codec->rc_max_rate = 200000; */
   /* Stream_aux_val(stream)->avstream->codec->bit_rate = 10000; */
@@ -345,11 +354,12 @@ ffmpeg_stream_new_video(value ctx, value video_info_)
 }
 
 value
-ffmpeg_stream_new_audio(value ctx, value audio_info_)
+ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
 {
-  CAMLparam2(ctx, audio_info_);
+  CAMLparam3(ctx, av_codec_id, audio_info_);
   CAMLlocal1(stream);
-  AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+  int codec_id = avcodec_of_ocaml(av_codec_id);
+  AVCodec* codec = avcodec_find_encoder(codec_id);
   stream = caml_alloc_tuple(StreamSize);
   int ret;
 
@@ -358,7 +368,7 @@ ffmpeg_stream_new_audio(value ctx, value audio_info_)
   Stream_context_direct_val(stream) = ctx;
   Stream_aux_val(stream)->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, codec);
 
-  Stream_aux_val(stream)->avstream->codec->codec_id    = AV_CODEC_ID_AAC;
+  Stream_aux_val(stream)->avstream->codec->codec_id    = codec_id;
   Stream_aux_val(stream)->avstream->codec->sample_rate = Int_val(Field(audio_info_, 0));
   Stream_aux_val(stream)->avstream->codec->channels    = Int_val(Field(audio_info_, 1));
   Stream_aux_val(stream)->avstream->codec->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
@@ -396,18 +406,18 @@ ffmpeg_stream_new_audio(value ctx, value audio_info_)
 }
 
 value
-ffmpeg_stream_new(value ctx, value media_kind_)
+ffmpeg_stream_new(value ctx, value av_codec_id, value media_kind_)
 {
-  CAMLparam2(ctx, media_kind_);
+  CAMLparam3(ctx, av_codec_id, media_kind_);
   CAMLlocal1(ret);
 
   if (Context_val(ctx)->fmtCtx) {
     switch (Tag_val(media_kind_)) {
     case 0: {
-      ret = ffmpeg_stream_new_video(ctx, Field(media_kind_, 0));
+      ret = ffmpeg_stream_new_video(ctx, av_codec_id, Field(media_kind_, 0));
     } break;
     case 1: {
-      ret = ffmpeg_stream_new_audio(ctx, Field(media_kind_, 0));
+      ret = ffmpeg_stream_new_audio(ctx, av_codec_id, Field(media_kind_, 0));
     } break;
     }
   } else {

@@ -35,7 +35,7 @@ external open_input_ : string -> [`Read] context = "ffmpeg_open_input"
 (* Wrapper ensuring the file gets evaluated if the functionality is used *)
 let open_input x = open_input_ x
 
-external new_stream : [`Write] context -> 'media_info media_new_info -> ('media_info, [<`Write]) stream = "ffmpeg_stream_new"
+external new_stream : [`Write] context -> av_codec_id -> 'media_info media_new_info -> ('media_info, [<`Write]) stream = "ffmpeg_stream_new"
 
 (* external open_stream : [`Read] context -> index -> 'media_info media_type -> ('media_info, [<`Write]) stream = "ffmpeg_stream_open" *)
 
