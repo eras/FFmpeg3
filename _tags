@@ -14,7 +14,8 @@ true: bin_annot
 <src/FFmpegGen.*>: package(ctypes), package(ctypes.foreign), package(ctypes.stubs)
 <src/FFmpegGenGen-c.c>: use_ctypes
 
-"test/ffmpegTest.byte": link_FFmpeg
+<test/ffmpegTest.byte>: link_FFmpeg
+<test/ffmpegTest.native>: link_FFmpeg
 <test/*>: package(oUnit), \
 	use_libFFmpeg, \
 	package(ctypes), package(ctypes.foreign), package(ctypes.stubs), \

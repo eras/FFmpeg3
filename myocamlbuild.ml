@@ -143,10 +143,9 @@ let setup_ffmpeg () =
   ocaml_lib ~byte:true ~native:true ~extern:false ~dir:"src" "src/libFFmpeg";
   flag ["use_libFFmpeg"; "ocaml"; "compile"] (S[A"-I"; A"src"]);
   dep ["compile"; "use_libFFmpeg"] ["src/FFmpeg3.cmi"];
-  flag ["link_FFmpeg"] (S [A "-cclib"; A"src/libFFmpeg-stubs.a"; S (cclibify @@ Lazy.force ffmpeg_libs)])
-  (* flag ["link"; "ocaml"; "use_FFmpeg"; "byte"] (S[ *)
-  (*     S [A "-dllib"; A"-lFFmpeg-stubs"]; *)
-  (*   ]) *)
+  dep ["link_FFmpeg"] ["src/libFFmpeg-stubs.a"];
+  flag ["link_FFmpeg"; "byte"] (S [A "-cclib"; A"src/libFFmpeg-stubs.a"; S (cclibify @@ Lazy.force ffmpeg_libs)]);
+  flag ["link_FFmpeg"; "native"] (S [A "-ccopt"; A"-Lsrc"; A "-cclib"; A"src/libFFmpeg-stubs.a"; S (cclibify @@ Lazy.force ffmpeg_libs)])
 
 let _ = dispatch begin function
   | Before_options ->
