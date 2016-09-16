@@ -146,7 +146,7 @@ raise_and_leave_blocking_section_if_not(int condition, enum Exception exn, int e
   }
 }
 
-static int
+static enum AVCodecID
 avcodec_of_ocaml(value avcodec)
 {
   return avcodecs[Val_int(avcodec)];
@@ -304,7 +304,7 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   CAMLlocal1(stream);
 
   stream = caml_alloc_tuple(StreamSize);
-  int codec_id = avcodec_of_ocaml(av_codec_id);
+  enum AVCodecID codec_id = avcodec_of_ocaml(av_codec_id);
   AVCodec* codec = avcodec_find_encoder(codec_id);
   int ret;
 
@@ -358,7 +358,7 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
 {
   CAMLparam3(ctx, av_codec_id, audio_info_);
   CAMLlocal1(stream);
-  int codec_id = avcodec_of_ocaml(av_codec_id);
+  enum AVCodecID codec_id = avcodec_of_ocaml(av_codec_id);
   AVCodec* codec = avcodec_find_encoder(codec_id);
   stream = caml_alloc_tuple(StreamSize);
   int ret;

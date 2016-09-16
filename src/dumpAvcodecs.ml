@@ -40,8 +40,8 @@ let ml_define_variants codecs =
 
 let c_define_mapping codecs =
   let count = List.length codecs in
-  Printf.sprintf "int avcodecs[%d] = {\n" count ^
-  String.concat ",\n" (List.map ((^) "(int) ") codecs) ^
+  Printf.sprintf "enum AVCodecID avcodecs[%d] = {\n" count ^
+  String.concat ",\n" codecs ^
   "};\n"
 
 let map_from_codec_variant_code codec =
