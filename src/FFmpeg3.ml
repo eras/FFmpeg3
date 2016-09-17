@@ -21,6 +21,7 @@ let _ = Printexc.register_printer @@ fun exn ->
       | Logic -> "Logic"
       | Encode -> "Encode"
       | Closed -> "Closed"
+      | CopyParameters -> "CopyParameters"
     in
     Some (Printf.sprintf "FFmpeg.Exception (%s, %d)" kind_str code)
   | _ -> None

@@ -88,6 +88,7 @@ type ffmpeg_exception = FFmpegTypes.ffmpeg_exception =
   | Logic                       (** Logic error (bug) *)
   | Encode                      (** Error while encoding *)
   | Closed                      (** The object was closed before current access *)
+  | CopyParameters              (** Failed to copy codec parameters from context *)
 
 exception Exception of ffmpeg_exception * int
 

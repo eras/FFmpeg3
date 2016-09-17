@@ -49,5 +49,6 @@ type ffmpeg_exception =
   | Logic
   | Encode
   | Closed
+  | CopyParameters
 
 exception Exception of ffmpeg_exception * int
