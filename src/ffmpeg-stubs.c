@@ -320,20 +320,24 @@ ffmpeg_write(value stream, value rgbaFrame)
   sws_scale(streamAux.swsCtx,
             (const uint8_t * const *) AVFrame_val(rgbaFrame)->data,
             AVFrame_val(rgbaFrame)->linesize,
-            0, streamAux.avstream->codecpar->height, yuvFrame->data, yuvFrame->linesize);
+            0, streamAux.codecCtx->height, yuvFrame->data, yuvFrame->linesize);
 
   AVPacket packet = { 0 };
   av_init_packet(&packet);
-  int gotIt = 0;
-  ret = avcodec_encode_video2(streamAux.codecCtx, &packet, yuvFrame, &gotIt);
-  raise_and_leave_blocking_section_if_not(ret >= 0, ExnEncode, ret);
-  if (gotIt) {
-    packet.stream_index = 0;
+
+  ret = avcodec_send_frame(streamAux.codecCtx, yuvFrame);
+  raise_and_leave_blocking_section_if_not(ret == 0, ExnEncode, ret);
+
+  ret = avcodec_receive_packet(streamAux.codecCtx, &packet);
+  raise_and_leave_blocking_section_if_not(ret == 0 || ret == AVERROR(EAGAIN), ExnEncode, ret);
+  if (ret == 0) {
+    packet.stream_index = streamAux.avstream->index;
     ret = av_interleaved_write_frame(fmtCtx, &packet);
     raise_and_leave_blocking_section_if_not(ret >= 0, ExnFileIO, ret);
   }
 
   av_frame_free(&yuvFrame);
+  //av_packet_free(&packet);
 
   caml_leave_blocking_section();
 
@@ -357,15 +361,22 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   streamAux->type = Val_int(STREAM_VIDEO);
   Stream_context_direct_val(stream) = ctx;
   streamAux->codecCtx = codecCtx;
-  streamAux->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, codec);
+  streamAux->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, NULL);
 
-  streamAux->codecCtx->codec_id = codec_id;
+  streamAux->avstream->id = 0;
+
+  AVCodecParameters* codecpar = streamAux->avstream->codecpar;
+  ret = avcodec_parameters_from_context(streamAux->avstream->codecpar, codecCtx);
+  raise_if_not(ret >= 0, ExnCopyParameters, ret);
+
+  codecpar->codec_id = codec_id;
   /* streamAux->avstream->codecpar->rc_min_rate = 50000; */
   /* streamAux->avstream->codecpar->rc_max_rate = 200000; */
   /* streamAux->avstream->codecpar->bit_rate = 10000; */
-  streamAux->codecCtx->width    = Int_val(Field(video_info_, 0));
-  streamAux->codecCtx->height   = Int_val(Field(video_info_, 1));
-  streamAux->codecCtx->pix_fmt  = AV_PIX_FMT_YUV420P;
+  codecpar->width    = Int_val(Field(video_info_, 0));
+  codecpar->height   = Int_val(Field(video_info_, 1));
+  codecpar->format   = AV_PIX_FMT_YUV420P;
+  codecpar->bit_rate = 500000;
   //streamAux->avstream->codecpar->gop_size = 30;
 
   if (Context_val(ctx)->fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -375,9 +386,10 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   streamAux->codecCtx->time_base = (AVRational) {1, 10000};
   streamAux->avstream->time_base = (AVRational) {1, 10000};
 
-  ret = avcodec_parameters_from_context(streamAux->avstream->codecpar, codecCtx);
-  raise_if_not(ret >= 0, ExnCopyParameters, ret);
+  codecCtx->gop_size = 12;
 
+  ret = avcodec_parameters_to_context(codecCtx, streamAux->avstream->codecpar);
+  raise_if_not(ret >= 0, ExnCopyParameters, ret);
   
   AVDictionary* codecOpts = NULL;
   /* av_dict_set(&codecOpts, "profile", "baseline", 0); */
@@ -385,7 +397,7 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   /* av_dict_set(&codecOpts, "vbr", "1", 0); */
   //av_dict_set(&codecOpts, "x264-params", "bitrate=2", 0);
   //av_dict_set(&codecOpts, "x264-params", "crf=40:keyint=60:vbv_bufsize=40000:vbv_maxrate=150000", 0);
-  av_dict_set(&codecOpts, "x264-params", "crf=36:keyint=60", 0);
+  /* av_dict_set(&codecOpts, "x264-params", "crf=36:keyint=60", 0); */
 
   caml_enter_blocking_section();
   ret = avcodec_open2(codecCtx, codec, &codecOpts);
@@ -393,6 +405,9 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   caml_leave_blocking_section();
 
   assert(codecCtx->pix_fmt == AV_PIX_FMT_YUV420P);
+
+  ret = avcodec_parameters_from_context(streamAux->avstream->codecpar, codecCtx);
+  raise_if_not(ret >= 0, ExnCopyParameters, ret);
 
   streamAux->swsCtx =
     sws_getContext(streamAux->codecCtx->width, streamAux->codecCtx->height, USER_PIXFORMAT,
@@ -421,11 +436,14 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
   streamAux->codecCtx = codecCtx;
   streamAux->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, codec);
 
-  streamAux->codecCtx->codec_id    = codec_id;
-  streamAux->codecCtx->sample_rate = Int_val(Field(audio_info_, 0));
-  streamAux->codecCtx->channels    = Int_val(Field(audio_info_, 1));
-  streamAux->codecCtx->sample_fmt  = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-  streamAux->codecCtx->channel_layout = AV_CH_LAYOUT_STEREO;
+  AVCodecParameters* codecpar = streamAux->avstream->codecpar;
+  ret = avcodec_parameters_from_context(streamAux->avstream->codecpar, codecCtx);
+  raise_if_not(ret >= 0, ExnCopyParameters, ret);
+  codecpar->codec_id    = codec_id;
+  codecpar->sample_rate = Int_val(Field(audio_info_, 0));
+  codecpar->channels    = Int_val(Field(audio_info_, 1));
+  codecpar->format      = codec->sample_fmts ? codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+  codecpar->channel_layout = AV_CH_LAYOUT_STEREO;
   //streamAux->avstream->codecpar->channels    = av_get_channel_layout_nb_channels(streamAux->avstream->codecpar->channel_layout);
 
   if (Context_val(ctx)->fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -435,7 +453,7 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
   streamAux->codecCtx->time_base = (AVRational) {1, 10000};
   streamAux->avstream->time_base = (AVRational) {1, 10000};
 
-  ret = avcodec_parameters_from_context(streamAux->avstream->codecpar, codecCtx);
+  ret = avcodec_parameters_to_context(codecCtx, streamAux->avstream->codecpar);
   raise_if_not(ret >= 0, ExnCopyParameters, ret);
   
   AVDictionary* codecOpts = NULL;
@@ -511,8 +529,8 @@ ffmpeg_frame_new(value stream, value pts_)
     double pts = Double_val(pts_);
     frame = wrap_ptr(&avframe_ops, av_frame_alloc());
     AVFrame_val(frame)->format = USER_PIXFORMAT; // 0xrrggbbaa
-    AVFrame_val(frame)->width = Stream_aux_val(stream)->avstream->codecpar->width;
-    AVFrame_val(frame)->height = Stream_aux_val(stream)->avstream->codecpar->height;
+    AVFrame_val(frame)->width = Stream_aux_val(stream)->codecCtx->width;
+    AVFrame_val(frame)->height = Stream_aux_val(stream)->codecCtx->height;
 
     int ret;
     ret = av_frame_get_buffer(AVFrame_val(frame), 32);
@@ -521,7 +539,7 @@ ffmpeg_frame_new(value stream, value pts_)
     ret = av_frame_make_writable(AVFrame_val(frame));
     raise_if_not(ret >= 0, ExnLogic, ret);
 
-    AVFrame_val(frame)->pts = pts = (int64_t) (Stream_aux_val(stream)->avstream->time_base.den * pts);
+    AVFrame_val(frame)->pts = pts = (int64_t) (Stream_aux_val(stream)->codecCtx->time_base.den * pts);
   } else {
     raise(ExnClosed, 0);
   }
