@@ -52,4 +52,8 @@ external write : ('media_info, 'rw) stream -> 'media_info frame -> unit = "ffmpe
 
 external close_stream : ('media_info, 'rw) stream -> unit = "ffmpeg_stream_close"
 
+external write_trailer : 'rw context -> unit = "ffmpeg_write_trailer"
+
+external flush : ('media_info, [< `Write ]) stream -> unit = "ffmpeg_stream_flush"
+
 external close : 'rw context -> unit = "ffmpeg_close"

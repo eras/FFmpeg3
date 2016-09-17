@@ -108,6 +108,9 @@ external new_stream :
 (** [open_ ctx] finished opening a file for writing *)
 external open_ : 'rw context -> unit = "ffmpeg_open"
 
+(** [write_trailer ctx] writes the trailer. Do this before close_stream! *)
+external write_trailer : 'rw context -> unit = "ffmpeg_write_trailer"
+
 (** [close ctx] closes a media file  *)
 external close : 'rw context -> unit = "ffmpeg_close"
 
@@ -127,6 +130,8 @@ external free_frame : 'media_info frame -> unit = "ffmpeg_frame_free"
 external write :
   ('media_info, [< `Read | `Write ]) stream -> 'media_info frame -> unit
   = "ffmpeg_write"
+
+external flush : ('media_info, [< `Write ]) stream -> unit = "ffmpeg_stream_flush"
 
 (* todo *)
 external frame_buffer : [> `Video ] frame -> 'format bitmap

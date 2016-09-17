@@ -222,6 +222,24 @@ ffmpeg_open(value ctx)
   CAMLreturn(Val_unit);
 }
 
+value
+ffmpeg_write_trailer(value ctx)
+{
+  CAMLparam1(ctx);
+
+  if (Context_val(ctx)->fmtCtx) {
+    AVFormatContext* fmtCtx = Context_val(ctx)->fmtCtx;
+    caml_enter_blocking_section();
+    if (fmtCtx->pb) {
+      int ret = av_write_trailer(fmtCtx);
+      raise_and_leave_blocking_section_if_not(ret == 0, ExnFileIO, ret);
+    }
+    caml_leave_blocking_section();
+  }
+
+  CAMLreturn(Val_unit);
+}
+
 
 value
 ffmpeg_close(value ctx)
@@ -231,9 +249,6 @@ ffmpeg_close(value ctx)
   if (Context_val(ctx)->fmtCtx) {
     AVFormatContext* fmtCtx = Context_val(ctx)->fmtCtx;
     caml_enter_blocking_section();
-    if (fmtCtx->pb) {
-      av_write_trailer(fmtCtx);
-    }
     //avcodec_close(Context_val(ctx)->avstream->codecpar); ??
     avformat_free_context(fmtCtx);
 
@@ -248,6 +263,32 @@ ffmpeg_close(value ctx)
     Context_val(ctx)->filename = NULL;
   }
   
+  CAMLreturn(Val_unit);
+}
+
+value
+ffmpeg_stream_flush(value stream)
+{
+  CAMLparam1(stream);
+
+  if (Stream_context_direct_val(stream) != Val_int(0) &&
+      Stream_context_val(stream)->fmtCtx) {
+    struct StreamAux streamAux = *Stream_aux_val(stream);
+    caml_enter_blocking_section();
+    AVPacket packet = { 0 };
+    int ret = avcodec_send_frame(streamAux.codecCtx, NULL);
+    raise_and_leave_blocking_section_if_not(ret >= 0, ExnEncode, ret);
+    do {
+      ret = avcodec_receive_packet(streamAux.codecCtx, &packet);
+      if (ret == 0) {
+        packet.stream_index = streamAux.avstream->index;
+        ret = av_interleaved_write_frame(Stream_context_val(stream)->fmtCtx, &packet);
+        raise_and_leave_blocking_section_if_not(ret >= 0, ExnFileIO, ret);
+      }
+    } while (ret == 0);
+    //av_packet_free(&packet);
+    caml_leave_blocking_section();
+  }
   CAMLreturn(Val_unit);
 }
 
@@ -448,23 +489,6 @@ ffmpeg_stream_close(value stream)
   CAMLparam1(stream);
 
   if (Stream_context_direct_val(stream) != Val_int(0)) {
-    if (Stream_context_val(stream)->fmtCtx &&
-        Stream_aux_val(stream)->codecCtx->flags & AV_CODEC_CAP_DELAY) {
-      int gotIt;
-      AVPacket packet = { 0 };
-      caml_enter_blocking_section();
-      do {
-        int ret = avcodec_encode_video2(Stream_aux_val(stream)->codecCtx, &packet, NULL, &gotIt);
-        raise_and_leave_blocking_section_if_not(ret >= 0, ExnEncode, ret);
-        if (gotIt) {
-          packet.stream_index = 0;
-          ret = av_interleaved_write_frame(Stream_context_val(stream)->fmtCtx, &packet);
-          raise_and_leave_blocking_section_if_not(ret >= 0, ExnFileIO, ret);
-        }
-      } while (gotIt);
-      caml_leave_blocking_section();
-    }
-
     // can this be called?!
     avcodec_close(Stream_aux_val(stream)->codecCtx);
     if (Stream_aux_val(stream)->swsCtx) {

@@ -23,6 +23,8 @@ let main () =
       free_frame frame;
       ()
     ) in
+  flush stream;
+  write_trailer ctx;
   close_stream stream;
   close ctx;
   ()
