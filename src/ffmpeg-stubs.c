@@ -144,6 +144,7 @@ raise_and_leave_blocking_section_if_not(int condition, enum Exception exn, int e
 {
   if (!condition) {
     caml_leave_blocking_section();
+    printf("error: %s\n", av_err2str(error));
     raise(exn, error);
   }
 }
@@ -161,6 +162,7 @@ ffmpeg_create(value filename_)
   CAMLlocal1(ctx);
 
   av_register_all(); // this is fast to redo
+  av_log_set_level(AV_LOG_DEBUG);
 
   ctx = caml_alloc_custom(&context_ops, sizeof(struct Context), 0, 1);
   Context_val(ctx)->filename = strdup((char*) filename_);
@@ -215,6 +217,8 @@ ffmpeg_open(value ctx)
     ret = avio_open(&fmtCtx->pb, filename, AVIO_FLAG_WRITE);
     raise_and_leave_blocking_section_if_not(ret >= 0, ExnFileIO, ret);
   }
+
+  av_dump_format(fmtCtx, 0, NULL, 1);
 
   ret = avformat_write_header(fmtCtx, NULL);
   caml_leave_blocking_section();

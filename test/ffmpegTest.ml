@@ -1,5 +1,5 @@
 open Batteries
-open FFmpeg3
+open FFmpeg3.LowLevel
 
 let main () =
   let ctx = create "foo.mp4" in

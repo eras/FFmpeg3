@@ -1,53 +1,56 @@
 open OUnit2
 
-module F = FFmpeg3
+module F = struct
+  include FFmpeg3
+  module LL = LowLevel
+end
 
 let create_close test_ctx =
-  let f = F.create "create_close.mp4" in
-  F.close f;
+  let f = F.LL.create "create_close.mp4" in
+  F.LL.close f;
   ()
 
 let new_stream test_ctx =
-  let f = F.create "new_stream.mp4" in
-  let s = F.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
-  F.close_stream s;
-  F.close f;
+  let f = F.LL.create "new_stream.mp4" in
+  let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
+  F.LL.close_stream s;
+  F.LL.close f;
   ()
 
 let write_frame test_ctx =
-  let f = F.create "write_frame.mp4" in
-  let s = F.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
-  F.open_ f;
-  let frame = F.new_frame s 0.0 in
-  let _fb = F.frame_buffer frame in
-  F.write s frame;
-  F.free_frame frame;
-  F.close_stream s;
-  F.close f;
+  let f = F.LL.create "write_frame.mp4" in
+  let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
+  F.LL.open_ f;
+  let frame = F.LL.new_frame s 0.0 in
+  let _fb = F.LL.frame_buffer frame in
+  F.LL.write s frame;
+  F.LL.free_frame frame;
+  F.LL.close_stream s;
+  F.LL.close f;
   ()
 
 let write_frames test_ctx =
-  let f = F.create "write_frames.mp4" in
-  let s = F.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
-  F.open_ f;
+  let f = F.LL.create "write_frames.mp4" in
+  let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
+  F.LL.open_ f;
   for i = 0 to 100 do
-    let frame = F.new_frame s (float i /. 10.0) in
-    let _fb = F.frame_buffer frame in
-    F.write s frame;
-    F.free_frame frame;
+    let frame = F.LL.new_frame s (float i /. 10.0) in
+    let _fb = F.LL.frame_buffer frame in
+    F.LL.write s frame;
+    F.LL.free_frame frame;
   done;
-  F.close_stream s;
-  F.close f;
+  F.LL.close_stream s;
+  F.LL.close f;
   ()
 
 let close_stream_twice test_ctx =
-  let f = F.create "new_stream.mp4" in
-  let s = F.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
-  F.close_stream s;
+  let f = F.LL.create "new_stream.mp4" in
+  let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
+  F.LL.close_stream s;
   assert_raises (F.Exception (Closed, 0)) (fun () ->
-      F.close_stream s;
+      F.LL.close_stream s;
     );
-  F.close f;
+  F.LL.close f;
   ()
 
 let ffmpeg =

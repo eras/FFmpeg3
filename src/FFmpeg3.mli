@@ -26,7 +26,7 @@
 
 include module type of FFmpeg3Avcodecs
 
-type 'rw context = 'rw FFmpegTypes.context
+type 'rw context
 
 type pts = float                (** Presentation time *)
 
@@ -62,8 +62,7 @@ type 'a media_type = 'a FFmpegTypes.media_type =
 type 'rw rw = 'rw constraint 'rw = [< `Read | `Write ]
 
 (** A media stream (typically a track) *)
-type ('media_info, 'a) stream = ('media_info, 'a) FFmpegTypes.stream
-  constraint 'a = [< `Read | `Write ]
+type ('media_info, 'a) stream constraint 'a = [< `Read | `Write ]
 
 (** Raw bitmap *)
 type 'format bitmap = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
@@ -92,48 +91,55 @@ type ffmpeg_exception = FFmpegTypes.ffmpeg_exception =
 
 exception Exception of ffmpeg_exception * int
 
+module LowLevel : sig
+  type 'rw context
+  type ('media_info, 'a) stream constraint 'a = [< `Read | `Write ]
+
+  (** [create filename] creates a new media file *)
+  val create : string -> [ `Write ] context
+
+  (** [open_input filename] opens an existing media file *)
+  val open_input : string -> [ `Read ] context
+
+  (** [new_stream context media_info] creates a new stream for a
+      [create]d media file context *)
+  external new_stream :
+    [ `Write ] context ->
+    av_codec_id -> 'media_info media_new_info -> ('media_info, [< `Write ]) stream
+    = "ffmpeg_stream_new"
+
+  (** [open_ ctx] finished opening a file for writing *)
+  external open_ : 'rw context -> unit = "ffmpeg_open"
+
+  (** [write_trailer ctx] writes the trailer. Do this before close_stream! *)
+  external write_trailer : 'rw context -> unit = "ffmpeg_write_trailer"
+
+  (** [close ctx] closes a media file  *)
+  external close : 'rw context -> unit = "ffmpeg_close"
+
+  (** [new_frame pts] creates a new video frame with given time stamp *)
+  external new_frame :
+    ('media_info, [ `Write ]) stream -> pts -> 'media_info frame
+    = "ffmpeg_frame_new"
+
+  (** [close_stream stream] closes a stream withni a media file context *)
+  external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit
+    = "ffmpeg_stream_close"
+
+  (** [free_frame frame] releases a frame *)
+  external free_frame : 'media_info frame -> unit = "ffmpeg_frame_free"
+
+  (** [write stream frame] writes a frame to a stream *)
+  external write :
+    ('media_info, [< `Read | `Write ]) stream -> 'media_info frame -> unit
+    = "ffmpeg_write"
+
+  external flush : ('media_info, [< `Write ]) stream -> unit = "ffmpeg_stream_flush"
+
+  (* todo *)
+  external frame_buffer : [> `Video ] frame -> 'format bitmap
+    = "ffmpeg_frame_buffer"
+end
+
 (** [create filename] creates a new media file *)
 val create : string -> [ `Write ] context
-
-(** [open_input filename] opens an existing media file *)
-val open_input : string -> [ `Read ] context
-
-(** [new_stream context media_info] creates a new stream for a
-    [create]d media file context *)
-external new_stream :
-  [ `Write ] context ->
-  av_codec_id -> 'media_info media_new_info -> ('media_info, [< `Write ]) stream
-  = "ffmpeg_stream_new"
-
-(** [open_ ctx] finished opening a file for writing *)
-external open_ : 'rw context -> unit = "ffmpeg_open"
-
-(** [write_trailer ctx] writes the trailer. Do this before close_stream! *)
-external write_trailer : 'rw context -> unit = "ffmpeg_write_trailer"
-
-(** [close ctx] closes a media file  *)
-external close : 'rw context -> unit = "ffmpeg_close"
-
-(** [new_frame pts] creates a new video frame with given time stamp *)
-external new_frame :
-  ('media_info, [ `Write ]) stream -> pts -> 'media_info frame
-  = "ffmpeg_frame_new"
-
-(** [close_stream stream] closes a stream withni a media file context *)
-external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit
-  = "ffmpeg_stream_close"
-
-(** [free_frame frame] releases a frame *)
-external free_frame : 'media_info frame -> unit = "ffmpeg_frame_free"
-
-(** [write stream frame] writes a frame to a stream *)
-external write :
-  ('media_info, [< `Read | `Write ]) stream -> 'media_info frame -> unit
-  = "ffmpeg_write"
-
-external flush : ('media_info, [< `Write ]) stream -> unit = "ffmpeg_stream_flush"
-
-(* todo *)
-external frame_buffer : [> `Video ] frame -> 'format bitmap
-  = "ffmpeg_frame_buffer"
-

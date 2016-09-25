@@ -1,4 +1,3 @@
-type 'rw context
 type pts = float
 type width = int
 type height = int
@@ -22,7 +21,6 @@ type 'a media_type =
   | Audio : [`Audio] media_type
   | Data  : [`Data]  media_type
 type 'rw rw = [<`Read | `Write] as 'rw
-type ('media_info, 'rw) stream constraint 'rw = [<`Read | `Write]
 type 'format bitmap = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type avmedia_type =
