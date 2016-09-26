@@ -15,14 +15,15 @@ let temp_file_with contents k =
        k name
     )
 
-let get_avcodecs_list () =
-  temp_file_with "#include <libavcodec/avcodec.h>\n" @@
+let get_list include_file pattern =
+  temp_file_with ("#include <" ^ include_file ^ ">\n") @@
   (fun source_file_name ->
      let command =
        Printf.sprintf
-         {|cpp $(pkg-config --cflags libavcodec) "%s" |
-           sed 's/^\s\s*\(AV_CODEC_ID_[A-Z0-9_]*\).*/\1/; t; d'|}
+         ({|cpp $(pkg-config --cflags libavcodec) "%s" |
+            sed 's/^\s\s*\(%s[A-Z0-9_]*\).*/\1/; t; d'|})
          source_file_name
+         pattern
      in
      let input = Unix.open_process_in command in
      defer
@@ -31,6 +32,8 @@ let get_avcodecs_list () =
           IO.lines_of input |> List.of_enum
        )
   )
+
+let get_avcodecs_list () = get_list "libavcodec/avcodec.h" "AV_CODEC_ID_"
 
 let ml_define_variants codecs =
   let variants = flip List.map codecs @@ fun codec -> Printf.sprintf "| %s" codec in
