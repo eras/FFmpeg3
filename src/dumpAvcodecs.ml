@@ -35,15 +35,17 @@ let get_list include_file pattern =
 
 let get_avcodecs_list () = get_list "libavcodec/avcodec.h" "AV_CODEC_ID_"
 
-let ml_define_variants codecs =
+let get_pixfmts_list () = get_list "libavutil/pixfmt.h" "AV_PIX_FMT_"
+
+let ml_define_variants name codecs =
   let variants = flip List.map codecs @@ fun codec -> Printf.sprintf "| %s" codec in
-  "type av_codec_id =\n" ^
+  "type " ^ name ^ " =\n" ^
   String.concat "\n" variants ^
   "\n"
 
-let c_define_mapping codecs =
+let c_define_mapping type_ name codecs =
   let count = List.length codecs in
-  Printf.sprintf "enum AVCodecID avcodecs[%d] = {\n" count ^
+  Printf.sprintf "enum %s %s[%d] = {\n" type_ name count ^
   String.concat ",\n" codecs ^
   "};\n"
 
@@ -64,6 +66,7 @@ let main () =
         ("-out", String (fun x -> output_file := Some x), "Set output file");
     ] in
   let codecs = lazy (get_avcodecs_list ()) in
+  let pixfmts = lazy (get_pixfmts_list ()) in
   Arg.parse spec (fun _ -> assert false) "usage: dumpAvcodecs [mode]";
   match !output_file with
   | None ->
@@ -73,8 +76,12 @@ let main () =
     match !mode with
     | `None -> Printf.printf "Mode not set\n%!"
     | `Twice -> Printf.printf "Cannot set mode twice\n%!"
-    | `GenerateML -> Printf.fprintf file "%s\n" (ml_define_variants (Lazy.force codecs))
-    | `GenerateC -> Printf.fprintf file "%s" (c_define_mapping (Lazy.force codecs))
+    | `GenerateML -> Printf.fprintf file "%s\n%s\n"
+                       (ml_define_variants "av_codec_id" (Lazy.force codecs))
+                       (ml_define_variants "av_pixel_format" (Lazy.force pixfmts))
+    | `GenerateC -> Printf.fprintf file "%s\n%s\n"
+                      (c_define_mapping "AVCodecID" "avcodecs" (Lazy.force codecs))
+                      (c_define_mapping "AVPixelFormat" "avpixfmts" (Lazy.force pixfmts))
 
 let _ = main ()
     
