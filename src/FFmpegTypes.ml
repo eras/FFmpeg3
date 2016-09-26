@@ -23,6 +23,12 @@ type 'a media_type =
 type 'rw rw = [<`Read | `Write] as 'rw
 type 'format bitmap = (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
 
+type video_frame_info = {
+  fi_width : width;
+  fi_height : height;
+  fi_pixfmt : FFmpeg3Avcodecs.av_pixel_format;
+}
+
 type avmedia_type =
 | AVMEDIA_TYPE_UNKNOWN
 | AVMEDIA_TYPE_VIDEO

@@ -21,7 +21,7 @@ let write_frame test_ctx =
   let f = F.LL.create "write_frame.mp4" in
   let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
   F.LL.open_ f;
-  let frame = F.LL.new_frame s 0.0 in
+  let frame = F.LL.make_frame_for s 0.0 in
   let _fb = F.LL.frame_buffer frame in
   F.LL.write s frame;
   F.LL.free_frame frame;
@@ -34,7 +34,7 @@ let write_frames test_ctx =
   let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
   F.LL.open_ f;
   for i = 0 to 100 do
-    let frame = F.LL.new_frame s (float i /. 10.0) in
+    let frame = F.LL.make_frame_for s (float i /. 10.0) in
     let _fb = F.LL.frame_buffer frame in
     F.LL.write s frame;
     F.LL.free_frame frame;

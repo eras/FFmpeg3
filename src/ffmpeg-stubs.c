@@ -46,13 +46,39 @@ enum StreamType {
 
 typedef struct StreamAux {
   enum StreamType    type;
-  AVCodecContext*    codecCtx;
+  value /* AVCodecContext* */ codecCtx;
   AVStream*          avstream;
   struct SwsContext* swsCtx;
   struct SwrContext* swrCtx;
 } StreamAux;
 
 #define StreamAux_val(v) ((struct StreamAux *) Data_custom_val(v))
+
+static struct custom_operations avcodeccontext_ops = {
+  "ffmpeg.AVCodecContext",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default
+};
+
+static struct custom_operations swscontext_ops = {
+  "ffmpeg.SwsContext",
+  custom_finalize_default,      /* TODO */
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default
+};
+
+void* Data_custom_val_debug(value v) { return Data_custom_val(v); }
+
+#define AVCodecContext_val(v) (*(struct AVCodecContext **) Data_custom_val(v))
+
+#define SwsContext_val(v) (*(struct SwsContext **) Data_custom_val(v))
+
+#define SwrContext_val(v) (*(struct SwrContext **) Data_custom_val(v))
 
 #define StreamSize              2
 #define Stream_context_direct_val(v)   Field(v, 0)
@@ -84,7 +110,7 @@ static struct custom_operations streamaux_ops = {
 
 static struct custom_operations avframe_ops = {
   "ffmpeg.AVFrame",
-  custom_finalize_default,
+  custom_finalize_default,      /* TODO */
   custom_compare_default,
   custom_hash_default,
   custom_serialize_default,
@@ -92,6 +118,17 @@ static struct custom_operations avframe_ops = {
 };
 
 #define AVFrame_val(v) (*((struct AVFrame **) Data_custom_val(v)))
+
+static struct custom_operations avpacket_ops = {
+  "ffmpeg.AVPacket",
+  custom_finalize_default,      /* TODO */
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default
+};
+
+#define AVPacket_val(v) (*((struct AVPacket **) Data_custom_val(v)))
 
 #define AVStream_val(v) (*((struct AVStream **) Data_custom_val(v)))
 
@@ -118,6 +155,20 @@ enum Exception {
   ExnClosed,
   ExnCopyParameters
 };
+
+#define Some_val(v) Field(v,0)
+
+#define Val_none Val_int(0)
+
+static value
+Val_some( value v )
+{   
+  CAMLparam1(v);
+  CAMLlocal1(some);
+  some = caml_alloc(1, 0);
+  Store_field(some, 0, v);
+  CAMLreturn(some);
+}
 
 static
 void
@@ -153,6 +204,12 @@ static enum AVCodecID
 avcodec_of_ocaml(value avcodec)
 {
   return avcodecs[Int_val(avcodec)];
+}
+
+static enum AVPixelFormat
+avpixelformat_of_ocaml(value pixelformat)
+{
+  return avpixfmts[Int_val(pixelformat)];
 }
 
 value
@@ -278,12 +335,13 @@ ffmpeg_stream_flush(value stream)
   if (Stream_context_direct_val(stream) != Val_int(0) &&
       Stream_context_val(stream)->fmtCtx) {
     struct StreamAux streamAux = *Stream_aux_val(stream);
+    AVCodecContext* codecCtx = AVCodecContext_val(streamAux.codecCtx);
     caml_enter_blocking_section();
     AVPacket packet = { 0 };
-    int ret = avcodec_send_frame(streamAux.codecCtx, NULL);
+    int ret = avcodec_send_frame(codecCtx, NULL);
     raise_and_leave_blocking_section_if_not(ret >= 0, ExnEncode, ret);
     do {
-      ret = avcodec_receive_packet(streamAux.codecCtx, &packet);
+      ret = avcodec_receive_packet(codecCtx, &packet);
       if (ret == 0) {
         packet.stream_index = streamAux.avstream->index;
         ret = av_interleaved_write_frame(Stream_context_val(stream)->fmtCtx, &packet);
@@ -297,6 +355,82 @@ ffmpeg_stream_flush(value stream)
 }
 
 value
+ffmpeg_get_stream_codec_context(value stream)
+{
+  CAMLparam1(stream);
+  struct StreamAux streamAux = *Stream_aux_val(stream);
+  CAMLreturn(streamAux.codecCtx);
+}
+
+value
+ffmpeg_send_frame(value codecCtx_ocaml, value avframe)
+{
+  CAMLparam2(codecCtx_ocaml, avframe);
+  int ret;
+
+  AVCodecContext* codecCtx = AVCodecContext_val(codecCtx_ocaml);
+  AVFrame* frameVal = avframe == Val_none ? NULL : AVFrame_val(Val_some(avframe));
+
+  caml_enter_blocking_section();
+  
+  ret = avcodec_send_frame(codecCtx, frameVal);
+  raise_and_leave_blocking_section_if_not(ret == 0, ExnEncode, ret);
+
+  caml_leave_blocking_section();
+
+  CAMLreturn(Val_unit);
+}
+
+value
+ffmpeg_receive_packet(value codecCtx_ocaml)
+{
+  CAMLparam1(codecCtx_ocaml);
+  CAMLlocal1(packet);
+  int ret;
+
+  AVPacket *packet_c = av_packet_alloc();
+  AVCodecContext* codecCtx = AVCodecContext_val(codecCtx_ocaml);
+
+  raise_and_leave_blocking_section_if_not(!packet_c, ExnMemory, 0);
+
+  caml_enter_blocking_section();
+  
+  ret = avcodec_receive_packet(codecCtx, packet_c);
+  raise_and_leave_blocking_section_if_not(ret == 0 || ret == AVERROR(EAGAIN), ExnEncode, ret);
+  if (ret == AVERROR(EAGAIN)) {
+    packet_c = NULL;
+  /* } else { */
+  /*   packet_c->stream_index = streamAux.avstream->index; */
+  }
+
+  caml_leave_blocking_section();
+
+  if (packet_c) {
+    packet = Val_some(wrap_ptr(&avpacket_ops, packet_c));
+  } else {
+    packet = Val_none;
+  }
+  
+  CAMLreturn(packet);
+}
+
+value
+ffmpeg_write_packet_interleaved(value stream, value packet)
+{
+  CAMLparam2(stream, packet);
+
+  AVPacket* packet_c = AVPacket_val(packet);
+  AVFormatContext* fmtCtx = Stream_context_val(stream)->fmtCtx;
+  
+  caml_enter_blocking_section();
+  int ret = av_interleaved_write_frame(fmtCtx, packet_c);
+  raise_and_leave_blocking_section_if_not(ret >= 0, ExnFileIO, ret);
+  caml_leave_blocking_section();
+
+  CAMLreturn(Val_unit);
+}
+
+value
 ffmpeg_write(value stream, value rgbaFrame)
 {
   CAMLparam2(stream, rgbaFrame);
@@ -306,6 +440,7 @@ ffmpeg_write(value stream, value rgbaFrame)
 
   struct StreamAux streamAux = *Stream_aux_val(stream);
   AVFormatContext* fmtCtx = Stream_context_val(stream)->fmtCtx;
+  AVCodecContext* codecCtx = AVCodecContext_val(streamAux.codecCtx);
 
   yuvFrame->format = AV_PIX_FMT_YUV420P;
   yuvFrame->width = AVFrame_val(rgbaFrame)->width;
@@ -324,15 +459,15 @@ ffmpeg_write(value stream, value rgbaFrame)
   sws_scale(streamAux.swsCtx,
             (const uint8_t * const *) AVFrame_val(rgbaFrame)->data,
             AVFrame_val(rgbaFrame)->linesize,
-            0, streamAux.codecCtx->height, yuvFrame->data, yuvFrame->linesize);
+            0, codecCtx->height, yuvFrame->data, yuvFrame->linesize);
 
   AVPacket packet = { 0 };
   av_init_packet(&packet);
 
-  ret = avcodec_send_frame(streamAux.codecCtx, yuvFrame);
+  ret = avcodec_send_frame(codecCtx, yuvFrame);
   raise_and_leave_blocking_section_if_not(ret == 0, ExnEncode, ret);
 
-  ret = avcodec_receive_packet(streamAux.codecCtx, &packet);
+  ret = avcodec_receive_packet(codecCtx, &packet);
   raise_and_leave_blocking_section_if_not(ret == 0 || ret == AVERROR(EAGAIN), ExnEncode, ret);
   if (ret == 0) {
     packet.stream_index = streamAux.avstream->index;
@@ -364,7 +499,7 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   StreamAux* streamAux = Stream_aux_val(stream);
   streamAux->type = Val_int(STREAM_VIDEO);
   Stream_context_direct_val(stream) = ctx;
-  streamAux->codecCtx = codecCtx;
+  streamAux->codecCtx = wrap_ptr(&avcodeccontext_ops, codecCtx);
   streamAux->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, NULL);
 
   streamAux->avstream->id = 0;
@@ -384,10 +519,10 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   //streamAux->avstream->codecpar->gop_size = 30;
 
   if (Context_val(ctx)->fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) {
-    streamAux->codecCtx->flags   |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    AVCodecContext_val(streamAux->codecCtx)->flags   |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
-  streamAux->codecCtx->time_base = (AVRational) {1, 10000};
+  AVCodecContext_val(streamAux->codecCtx)->time_base = (AVRational) {1, 10000};
   streamAux->avstream->time_base = (AVRational) {1, 10000};
 
   codecCtx->gop_size = 12;
@@ -414,11 +549,48 @@ ffmpeg_stream_new_video(value ctx, value av_codec_id, value video_info_)
   raise_if_not(ret >= 0, ExnCopyParameters, ret);
 
   streamAux->swsCtx =
-    sws_getContext(streamAux->codecCtx->width, streamAux->codecCtx->height, USER_PIXFORMAT,
-                   streamAux->codecCtx->width, streamAux->codecCtx->height, streamAux->codecCtx->pix_fmt,
+    sws_getContext(AVCodecContext_val(streamAux->codecCtx)->width, AVCodecContext_val(streamAux->codecCtx)->height, USER_PIXFORMAT,
+                   AVCodecContext_val(streamAux->codecCtx)->width, AVCodecContext_val(streamAux->codecCtx)->height, AVCodecContext_val(streamAux->codecCtx)->pix_fmt,
                    0, NULL, NULL, NULL);
   
   CAMLreturn((value) stream);
+}
+
+value
+ffmpeg_sws_make(value src, value dst)
+{
+  CAMLparam2(src, dst);
+  CAMLlocal1(sws);
+
+  struct SwsContext* swsCtx =
+    sws_getContext(Int_val(Field(src, 0)), Int_val(Field(src, 1)), avpixelformat_of_ocaml(Field(src, 2)),
+                   Int_val(Field(dst, 0)), Int_val(Field(dst, 1)), avpixelformat_of_ocaml(Field(dst, 2)),
+                   0, NULL, NULL, NULL);
+
+  raise_if_not(!!swsCtx, ExnMemory, 0);
+  
+  sws = wrap_ptr(&swscontext_ops, swsCtx);
+  
+  CAMLreturn(sws);
+}
+
+value
+ffmpeg_sws_scale(value swsCtx_ocaml, value src_ocaml, value dst_ocaml)
+{
+  CAMLparam3(swsCtx_ocaml, src_ocaml, dst_ocaml);
+
+  struct SwsContext* swsCtx = SwsContext_val(swsCtx_ocaml);
+  AVFrame* src = AVFrame_val(src_ocaml);
+  AVFrame* dst = AVFrame_val(dst_ocaml);
+
+  int ret = sws_scale(swsCtx,
+                      (const uint8_t * const *) src->data,
+                      src->linesize, 0, src->height,
+                      dst->data, dst->linesize);
+
+  raise_if_not(ret >= 0, ExnLogic, 0);
+  
+  CAMLreturn(dst_ocaml);
 }
 
 value
@@ -437,7 +609,7 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
   StreamAux* streamAux = Stream_aux_val(stream);
   streamAux->type = Val_int(STREAM_AUDIO);
   Stream_context_direct_val(stream) = ctx;
-  streamAux->codecCtx = codecCtx;
+  streamAux->codecCtx = wrap_ptr(&avcodeccontext_ops, codecCtx);
   streamAux->avstream = avformat_new_stream(Context_val(ctx)->fmtCtx, codec);
 
   AVCodecParameters* codecpar = streamAux->avstream->codecpar;
@@ -451,10 +623,10 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
   //streamAux->avstream->codecpar->channels    = av_get_channel_layout_nb_channels(streamAux->avstream->codecpar->channel_layout);
 
   if (Context_val(ctx)->fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) {
-    streamAux->codecCtx->flags   |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    AVCodecContext_val(streamAux->codecCtx)->flags   |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
-  streamAux->codecCtx->time_base = (AVRational) {1, 10000};
+  AVCodecContext_val(streamAux->codecCtx)->time_base = (AVRational) {1, 10000};
   streamAux->avstream->time_base = (AVRational) {1, 10000};
 
   ret = avcodec_parameters_to_context(codecCtx, streamAux->avstream->codecpar);
@@ -467,7 +639,7 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
   raise_and_leave_blocking_section_if_not(ret >= 0, ExnOpen, ret);
   caml_leave_blocking_section();
 
-  if (streamAux->codecCtx->sample_fmt != AV_SAMPLE_FMT_S16) {
+  if (AVCodecContext_val(streamAux->codecCtx)->sample_fmt != AV_SAMPLE_FMT_S16) {
     streamAux->swrCtx = swr_alloc();
     assert(streamAux->swrCtx);
 
@@ -476,7 +648,7 @@ ffmpeg_stream_new_audio(value ctx, value av_codec_id, value audio_info_)
     av_opt_set_sample_fmt(streamAux->swrCtx, "in_sample_fmt",      AV_SAMPLE_FMT_S16, 0);
     av_opt_set_int       (streamAux->swrCtx, "out_channel_count",  streamAux->avstream->codecpar->channels, 0);
     av_opt_set_int       (streamAux->swrCtx, "out_sample_rate",    streamAux->avstream->codecpar->sample_rate, 0);
-    av_opt_set_sample_fmt(streamAux->swrCtx, "out_sample_fmt",     streamAux->codecCtx->sample_fmt, 0);
+    av_opt_set_sample_fmt(streamAux->swrCtx, "out_sample_fmt",     AVCodecContext_val(streamAux->codecCtx)->sample_fmt, 0);
   }
   
 
@@ -512,7 +684,7 @@ ffmpeg_stream_close(value stream)
 
   if (Stream_context_direct_val(stream) != Val_int(0)) {
     // can this be called?!
-    avcodec_close(Stream_aux_val(stream)->codecCtx);
+    avcodec_close(AVCodecContext_val(Stream_aux_val(stream)->codecCtx));
     if (Stream_aux_val(stream)->swsCtx) {
       sws_freeContext(Stream_aux_val(stream)->swsCtx);
     }
@@ -525,7 +697,7 @@ ffmpeg_stream_close(value stream)
 }
 
 value
-ffmpeg_frame_new(value stream, value pts_)
+ffmpeg_make_frame_for(value stream, value pts_)
 {
   CAMLparam2(stream, pts_);
   CAMLlocal1(frame);
@@ -533,8 +705,8 @@ ffmpeg_frame_new(value stream, value pts_)
     double pts = Double_val(pts_);
     frame = wrap_ptr(&avframe_ops, av_frame_alloc());
     AVFrame_val(frame)->format = USER_PIXFORMAT; // 0xrrggbbaa
-    AVFrame_val(frame)->width = Stream_aux_val(stream)->codecCtx->width;
-    AVFrame_val(frame)->height = Stream_aux_val(stream)->codecCtx->height;
+    AVFrame_val(frame)->width = AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->width;
+    AVFrame_val(frame)->height = AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->height;
 
     int ret;
     ret = av_frame_get_buffer(AVFrame_val(frame), 32);
@@ -543,7 +715,31 @@ ffmpeg_frame_new(value stream, value pts_)
     ret = av_frame_make_writable(AVFrame_val(frame));
     raise_if_not(ret >= 0, ExnLogic, ret);
 
-    AVFrame_val(frame)->pts = pts = (int64_t) (Stream_aux_val(stream)->codecCtx->time_base.den * pts);
+    AVFrame_val(frame)->pts = pts = (int64_t) (AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->time_base.den * pts);
+  } else {
+    raise(ExnClosed, 0);
+  }
+
+  CAMLreturn((value) frame);
+}
+
+value
+ffmpeg_make_frame(value frame_info)
+{
+  CAMLparam1(frame_info);
+  CAMLlocal1(frame);
+  if (Stream_context_direct_val(frame_info) != Val_int(0)) {
+    frame = wrap_ptr(&avframe_ops, av_frame_alloc());
+    AVFrame_val(frame)->width = Int_val(Field(frame_info, 0));
+    AVFrame_val(frame)->height = Int_val(Field(frame_info, 1));
+    AVFrame_val(frame)->format = avpixelformat_of_ocaml(Field(frame_info, 2));
+
+    int ret;
+    ret = av_frame_get_buffer(AVFrame_val(frame), 32);
+    raise_if_not(ret >= 0, ExnMemory, ret);
+
+    ret = av_frame_make_writable(AVFrame_val(frame));
+    raise_if_not(ret >= 0, ExnLogic, ret);
   } else {
     raise(ExnClosed, 0);
   }

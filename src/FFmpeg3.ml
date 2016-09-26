@@ -31,6 +31,8 @@ let _ = Printexc.register_printer @@ fun exn ->
 module LowLevel = struct
   type 'rw context
   type ('media_info, 'a) stream constraint 'a = [< `Read | `Write ]
+  type 'media_info packet
+  type ('media_info, 'access) codec_context constraint 'access = [< `Read | `Write ]
 
   external create_ : string -> [`Write] context = "ffmpeg_create"
 
@@ -48,7 +50,9 @@ module LowLevel = struct
 
   external open_ : 'rw context -> unit = "ffmpeg_open"
 
-  external new_frame : ('media_info, [`Write]) stream -> pts -> 'media_info frame = "ffmpeg_frame_new"
+  external make_frame_for : ('media_info, [`Write]) stream -> pts -> 'media_info frame = "ffmpeg_make_frame_for"
+
+  external make_frame : video_frame_info -> 'media_info frame = "ffmpeg_make_frame"
 
   external frame_buffer : [>`Video] frame -> 'format bitmap = "ffmpeg_frame_buffer"
 
@@ -63,6 +67,20 @@ module LowLevel = struct
   external flush : ('media_info, [< `Write ]) stream -> unit = "ffmpeg_stream_flush"
 
   external close : 'rw context -> unit = "ffmpeg_close"
+
+  external send_frame : ('media_info, [<`Write]) codec_context -> 'media_info frame option -> unit = "ffmpeg_send_frame"
+
+  external receive_packet : ('media_info, [<`Write]) codec_context -> 'media_info packet = "ffmpeg_receive_packet"
+
+  external write_packet_interleaved : ('media_info, [<`Write]) stream -> 'media_info packet = "ffmpeg_write_packet_interleaved"
+
+  external get_stream_codec_context : ('media_info, _) stream -> ('media_info, _) codec_context  = "ffmpeg_get_stream_codec_context"
+
+  module Sws = struct
+    type t
+    external make : src : (width * height * av_pixel_format) -> dst : (width * height * av_pixel_format) -> t = "ffmpeg_sws_make"
+    external scale : t -> src:'media_info_in frame -> dst:'media_info_out frame -> unit = "ffmpeg_sws_scale"
+  end
 end
 
 type ('media_info, 'rw) stream = {
@@ -75,17 +93,22 @@ type 'rw stream_holder = Stream : { stream : ('media_info, 'rw) stream } -> 'rw 
 type 'rw context = {
   c_lowlevel         : 'rw LowLevel.context;
   mutable c_streams  : 'rw stream_holder list;
+  c_opened           : bool;
 }
 
 let create filename = {
   c_lowlevel = LowLevel.create filename;
   c_streams = [];
+  c_opened = false;
 }
 
 let open_input_ filename = {
   c_lowlevel = LowLevel.open_input_ filename;
   c_streams = [];
+  c_opened = false;
 }
+
+let new_id () = Oo.id (object end)
 
 let close_streams context =
   flip List.iter context.c_streams @@ function
@@ -100,7 +123,7 @@ let flush_streams context =
 let new_stream : [`Write] context -> av_codec_id -> 'media_info media_new_info -> ('media_info, [<`Write]) stream =
   fun context av_codec_id media_new_info ->
     let ll_stream = LowLevel.new_stream context.c_lowlevel av_codec_id media_new_info in
-    let stream = { s_id = Oo.id (object end);
+    let stream = { s_id = new_id ();
                    s_stream = ll_stream } in
     context.c_streams <- Stream { stream }::context.c_streams;
     stream
@@ -111,7 +134,7 @@ let open_ : 'rw context -> unit =
 
 let new_frame : ('media_info, [`Write]) stream -> pts -> 'media_info frame =
   fun stream pts ->
-    LowLevel.new_frame stream.s_stream pts
+    LowLevel.make_frame_for stream.s_stream pts
 
 let frame_buffer : [>`Video] frame -> 'format bitmap =
   fun frame ->

@@ -47,6 +47,12 @@ type audio = FFmpegTypes.audio = {
   a_layout : int option;        (** Channel layout *)
 }
 
+type video_frame_info = FFmpegTypes.video_frame_info = {
+  fi_width : width;
+  fi_height : height;
+  fi_pixfmt : FFmpeg3Avcodecs.av_pixel_format;
+}
+
 type data = FFmpegTypes.data    (** Raw data *)
 
 type 'a media_new_info = 'a FFmpegTypes.media_new_info =
@@ -117,10 +123,13 @@ module LowLevel : sig
   (** [close ctx] closes a media file  *)
   external close : 'rw context -> unit = "ffmpeg_close"
 
-  (** [new_frame pts] creates a new video frame with given time stamp *)
-  external new_frame :
+  (** [new_frame_for pts] creates a new video frame with given time stamp *)
+  external make_frame_for :
     ('media_info, [ `Write ]) stream -> pts -> 'media_info frame
-    = "ffmpeg_frame_new"
+    = "ffmpeg_make_frame_for"
+
+  (** [new_frame_for pts] creates a new video frame with given time stamp *)
+  external make_frame : video_frame_info -> 'media_info frame = "ffmpeg_make_frame"
 
   (** [close_stream stream] closes a stream withni a media file context *)
   external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit

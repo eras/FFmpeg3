@@ -7,7 +7,7 @@ let main () =
   let (_ : unit) = open_ ctx in
   let _ = List.(0 -- 200) |> Enum.iter (
     fun n ->
-      let frame = new_frame stream (float n) in
+      let frame = make_frame_for stream (float n) in
       let frame_buf = frame_buffer frame in
       let width = 640 in
       let fillbox x0 y0 x1 y1 color =

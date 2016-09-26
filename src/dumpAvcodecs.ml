@@ -66,7 +66,8 @@ let main () =
         ("-out", String (fun x -> output_file := Some x), "Set output file");
     ] in
   let codecs = lazy (get_avcodecs_list ()) in
-  let pixfmts = lazy (get_pixfmts_list ()) in
+  let pixfmts = lazy (get_pixfmts_list ()  |>
+                      List.filter ((<>) "AV_PIX_FMT_NB")) in
   Arg.parse spec (fun _ -> assert false) "usage: dumpAvcodecs [mode]";
   match !output_file with
   | None ->
