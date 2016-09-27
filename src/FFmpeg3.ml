@@ -52,7 +52,7 @@ module LowLevel = struct
 
   external make_frame_for : ('media_info, [`Write]) stream -> pts -> 'media_info frame = "ffmpeg_make_frame_for"
 
-  external make_frame : video_frame_info -> 'media_info frame = "ffmpeg_make_frame"
+  external make_frame : video_frame_info -> [> `Video] frame = "ffmpeg_make_frame"
 
   external frame_buffer : [>`Video] frame -> 'format bitmap = "ffmpeg_frame_buffer"
 

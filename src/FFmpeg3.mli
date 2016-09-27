@@ -129,7 +129,7 @@ module LowLevel : sig
     = "ffmpeg_make_frame_for"
 
   (** [new_frame_for pts] creates a new video frame with given time stamp *)
-  external make_frame : video_frame_info -> 'media_info frame = "ffmpeg_make_frame"
+  external make_frame : video_frame_info -> [> `Video] frame = "ffmpeg_make_frame"
 
   (** [close_stream stream] closes a stream withni a media file context *)
   external close_stream : ('media_info, [< `Read | `Write ]) stream -> unit
