@@ -100,6 +100,8 @@ exception Exception of ffmpeg_exception * int
 module LowLevel : sig
   type 'rw context
   type ('media_info, 'a) stream constraint 'a = [< `Read | `Write ]
+  type 'media_info packet
+  type ('media_info, 'access) codec_context constraint 'access = [< `Read | `Write ]
 
   (** [create filename] creates a new media file *)
   val create : string -> [ `Write ] context
@@ -148,6 +150,22 @@ module LowLevel : sig
   (* todo *)
   external frame_buffer : [> `Video ] frame -> 'format bitmap
     = "ffmpeg_frame_buffer"
+
+  external write_trailer : 'rw context -> unit = "ffmpeg_write_trailer"
+
+  external send_frame : ('media_info, [<`Write]) codec_context -> 'media_info frame option -> unit = "ffmpeg_send_frame"
+
+  external receive_packet : ('media_info, [<`Write]) codec_context -> 'media_info packet option = "ffmpeg_receive_packet"
+
+  external write_packet_interleaved : ('media_info, [<`Write]) stream -> 'media_info packet -> unit = "ffmpeg_write_packet_interleaved"
+
+  external get_stream_codec_context : ('media_info, _) stream -> ('media_info, _) codec_context  = "ffmpeg_get_stream_codec_context"
+
+  module Sws : sig
+    type t
+    external make : src : (width * height * av_pixel_format) -> dst : (width * height * av_pixel_format) -> t = "ffmpeg_sws_make"
+    external scale : t -> src:'media_info_in frame -> dst:'media_info_out frame -> unit = "ffmpeg_sws_scale"
+  end
 end
 
 (** [create filename] creates a new media file *)

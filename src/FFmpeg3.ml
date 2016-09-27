@@ -70,9 +70,9 @@ module LowLevel = struct
 
   external send_frame : ('media_info, [<`Write]) codec_context -> 'media_info frame option -> unit = "ffmpeg_send_frame"
 
-  external receive_packet : ('media_info, [<`Write]) codec_context -> 'media_info packet = "ffmpeg_receive_packet"
+  external receive_packet : ('media_info, [<`Write]) codec_context -> 'media_info packet option = "ffmpeg_receive_packet"
 
-  external write_packet_interleaved : ('media_info, [<`Write]) stream -> 'media_info packet = "ffmpeg_write_packet_interleaved"
+  external write_packet_interleaved : ('media_info, [<`Write]) stream -> 'media_info packet -> unit = "ffmpeg_write_packet_interleaved"
 
   external get_stream_codec_context : ('media_info, _) stream -> ('media_info, _) codec_context  = "ffmpeg_get_stream_codec_context"
 

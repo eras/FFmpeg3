@@ -369,11 +369,11 @@ ffmpeg_send_frame(value codecCtx_ocaml, value avframe)
   int ret;
 
   AVCodecContext* codecCtx = AVCodecContext_val(codecCtx_ocaml);
-  AVFrame* frameVal = avframe == Val_none ? NULL : AVFrame_val(Val_some(avframe));
+  AVFrame* frame = avframe == Val_none ? NULL : AVFrame_val(Some_val(avframe));
 
   caml_enter_blocking_section();
   
-  ret = avcodec_send_frame(codecCtx, frameVal);
+  ret = avcodec_send_frame(codecCtx, frame);
   raise_and_leave_blocking_section_if_not(ret == 0, ExnEncode, ret);
 
   caml_leave_blocking_section();
@@ -391,13 +391,14 @@ ffmpeg_receive_packet(value codecCtx_ocaml)
   AVPacket *packet_c = av_packet_alloc();
   AVCodecContext* codecCtx = AVCodecContext_val(codecCtx_ocaml);
 
-  raise_and_leave_blocking_section_if_not(!packet_c, ExnMemory, 0);
+  raise_if_not(!!packet_c, ExnMemory, 0);
 
   caml_enter_blocking_section();
   
   ret = avcodec_receive_packet(codecCtx, packet_c);
   raise_and_leave_blocking_section_if_not(ret == 0 || ret == AVERROR(EAGAIN), ExnEncode, ret);
   if (ret == AVERROR(EAGAIN)) {
+    av_packet_free(&packet_c);
     packet_c = NULL;
   /* } else { */
   /*   packet_c->stream_index = streamAux.avstream->index; */
@@ -704,7 +705,7 @@ ffmpeg_make_frame_for(value stream, value pts_)
   if (Stream_context_direct_val(stream) != Val_int(0)) {
     double pts = Double_val(pts_);
     frame = wrap_ptr(&avframe_ops, av_frame_alloc());
-    AVFrame_val(frame)->format = USER_PIXFORMAT; // 0xrrggbbaa
+    AVFrame_val(frame)->format = AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->pix_fmt;
     AVFrame_val(frame)->width = AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->width;
     AVFrame_val(frame)->height = AVCodecContext_val(Stream_aux_val(stream)->codecCtx)->height;
 

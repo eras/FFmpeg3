@@ -43,6 +43,25 @@ let write_frames test_ctx =
   F.LL.close f;
   ()
 
+let write_frames2 test_ctx =
+  let f = F.LL.create "write_frames2.mp4" in
+  let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
+  F.LL.open_ f;
+  let codecCtx = F.LL.get_stream_codec_context s in
+  for i = 0 to 100 do
+    let frame = F.LL.make_frame_for s (float i /. 10.0) in
+    let _fb = F.LL.frame_buffer frame in
+    F.LL.send_frame codecCtx (Some frame);
+    match F.LL.receive_packet codecCtx with
+    | Some packet -> F.LL.write_packet_interleaved s packet;
+    | _ -> ()
+  done;
+  F.LL.flush s;
+  F.LL.write_trailer f;
+  F.LL.close_stream s;
+  F.LL.close f;
+  ()
+
 let close_stream_twice test_ctx =
   let f = F.LL.create "new_stream.mp4" in
   let s = F.LL.new_stream f AV_CODEC_ID_H264 (F.CreateVideo { F.v_width = 128; v_height = 128 }) in
@@ -59,6 +78,7 @@ let ffmpeg =
    "new_stream"         >:: new_stream;
    "write_frame"        >:: write_frame;
    "write_frames"       >:: write_frames;
+   "write_frames2"      >:: write_frames2;
    "close_stream_twice" >:: close_stream_twice;
    ]
 
